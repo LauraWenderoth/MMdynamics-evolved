@@ -19,7 +19,7 @@ def eval_all_classifier(X_train,X_test,y_train,y_test):
     neural_model = models.Sequential([
         layers.Flatten(input_shape=X_train.shape[1:]),  # Flatten input
         layers.Dense(128, activation='relu'),  # Fully connected layer with 128 neurons and ReLU activation
-        layers.Dense(4, activation='softmax')  # Output layer with 10 neurons for classification
+        layers.Dense(4, activation='softmax')  # Output layer with 4 neurons for classification
     ])
     neural_model.compile(optimizer='adam',
                   loss='sparse_categorical_crossentropy',
@@ -156,5 +156,6 @@ if __name__ == "__main__":
         print(std_df.to_latex())
         mean_df.to_csv(results_dir/f'{key}_mean.csv')
         std_df.to_csv(results_dir / f'{key}_std.csv')
+
 
     print('Finished')
