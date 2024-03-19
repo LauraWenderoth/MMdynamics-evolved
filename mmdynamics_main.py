@@ -14,6 +14,7 @@ import dataloader_single
 from tqdm import tqdm
 from sklearn.metrics import f1_score, confusion_matrix, recall_score, precision_score, accuracy_score,balanced_accuracy_score
 import wandb
+import argparse
 
 def one_hot_tensor(y, num_dim):
     y_onehot = torch.zeros(y.shape[0], num_dim)
@@ -97,7 +98,7 @@ def transform_to_df(models_dict):
     return df_results
 
 
-def train(root_folder,results_dir,device, hidden_dim =[70, 500], num_epochs = 100, batch_size=1024, testonly=False, use_wandb=True,model_name='checkpoint.pt',classes = {'BP': 0, 'EryP': 1, 'MoP': 2, 'NeuP': 3}):
+def train(root_folder,results_dir,device, hidden_dim =[70, 500], num_epochs = 100, modalities=['protein','rna'], batch_size=1024, testonly=False, use_wandb=True,model_name='checkpoint.pt',classes = {'BP': 0, 'EryP': 1, 'MoP': 2, 'NeuP': 3}):
 
     class_names = list(classes.keys())
     test_inverval = 100
@@ -122,9 +123,17 @@ def train(root_folder,results_dir,device, hidden_dim =[70, 500], num_epochs = 10
 
     donors = np.unique(df_meta['donor'].values)
     donor_dfs =[]
+    used_modalities = []
+    if 'protein' in modalities:
+        used_modalities.append(df_protein)
+    if 'rna' in modalities:
+        used_modalities.append(df_rna)
+
+    print(f'Used modalities: {modalities}')
+
 
     for donor in donors:
-        df = dataloader_single.prepare_data(df_meta, [df_protein, df_rna], donor=donor,batch_size=batch_size)
+        df = dataloader_single.prepare_data(df_meta, used_modalities, donor=donor,batch_size=batch_size)
         donor_dfs.append(df)
 
     results = []
@@ -184,10 +193,25 @@ def train(root_folder,results_dir,device, hidden_dim =[70, 500], num_epochs = 10
         wandb.finish()
 
 if __name__ == "__main__":
-    root_folder = Path("/home/lw754/R255/data/singlecell")
-    results_dir = Path("/home/lw754/R255/results/singlecell/mmdynamics")
+    parser = argparse.ArgumentParser(description="Train the model")
+
+    # Add arguments
+    parser.add_argument("--root_folder", type=str, default="/home/lw754/R255/data/singlecell", help="Root folder path")
+    parser.add_argument("--results_dir", type=str, default="/home/lw754/R255/results/singlecell/mmdynamics", help="Results directory path")
+    parser.add_argument("--hidden_dim", nargs="+", type=int, default=[140, 1000], help="Hidden dimensions")
+    parser.add_argument("--modalities", nargs="+", type=str, default=["protein", "rna"], help="Modalities")
+    parser.add_argument("--testonly", action="store_true", help="Test only mode")
+    parser.add_argument("--epochs", type=int, default=100, help="Number of epochs")
+    # Parse arguments
+    args = parser.parse_args()
+
+    # Convert paths to Path objects
+    root_folder = Path(args.root_folder)
+    results_dir = Path(args.results_dir)
+
+    # Use GPU if available, otherwise use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    #device = torch.device('cpu')
     print(f"Using {'GPU' if device.type == 'cuda' else 'CPU'} for training.")
 
-    train(root_folder=root_folder, results_dir=results_dir,device=device,testonly=False)
+    # Call the train function
+    train(root_folder=root_folder, results_dir=results_dir, device=device, hidden_dim=args.hidden_dim, modalities=args.modalities, testonly=args.testonly,num_epochs = args.epochs)
