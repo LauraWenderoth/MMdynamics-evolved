@@ -25,7 +25,7 @@ if __name__ == "__main__":
     parser.add_argument("--modelpath", type=str, default="/home/lw754/R255/results/singlecell/mmdynamics/RUN_weighted_hiddim[35, 250]_num_epochs100_best/weights/checkpoint_31800.pt",
                         help="Results directory path")
     parser.add_argument("--root_folder", type=str, default="/home/lw754/R255/data/singlecell", help="Root folder path")
-    use_wandb = True
+    use_wandb = False
 
     args = parser.parse_args()
     root_folder = Path(args.root_folder)
@@ -61,8 +61,8 @@ if __name__ == "__main__":
                 features = [modality.float().to(device) for modality in features]
                 label = label.to(device)
                 estimated_TCP, real_TCP = model.get_tcp(features,label)
-                real_TCPs.extend(real_TCP)
-                estimated_TCPs.extend(estimated_TCP)
+                real_TCPs.extend(real_TCP[1])
+                estimated_TCPs.extend(estimated_TCP[1])
 
         y_true = np.squeeze([tensor.detach().cpu().numpy() for tensor in real_TCPs])
         y_pred = np.squeeze([tensor.detach().cpu().numpy() for tensor in estimated_TCPs])
