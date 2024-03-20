@@ -4,15 +4,19 @@ from torchvision.io import read_image
 from torch.utils.data import Dataset, DataLoader
 import torch
 from pathlib import Path
+from torchvision import transforms
 from sklearn.model_selection import train_test_split
 import itertools
 import random
+from PIL import Image
 
 class SingleCellDataset(Dataset):
-    def __init__(self, X,y,image_path=None):
+    def __init__(self, X,y,image_path=None,transform=False):
         self.X = X
         self.y = y
         self.image_path = image_path
+        if image_path is not None:
+            self.image_path = Path(image_path)
         self.cuda = True if torch.cuda.is_available() else False
 
 
@@ -21,10 +25,30 @@ class SingleCellDataset(Dataset):
 
     def __getitem__(self, idx):
         label = torch.tensor(self.y[idx])
-        features = [torch.tensor(modality.iloc[idx].values) for modality in self.X]
+        if self.image_path is None:
+            features = [torch.tensor(modality.iloc[idx].values) for modality in self.X]
+        else:
+            features = []
+            for modality in self.X:
+                feature = modality.iloc[idx].values
+                if len(feature) == 1:
+                    image = Image.open(self.image_path/feature.item())
+                    transform = transforms.Compose([
+                        transforms.RandomHorizontalFlip(p=0.5),  # Random horizontal flip with a probability of 0.5
+                        transforms.RandomVerticalFlip(p=0.5),
+                    ])
+                    tensor_transform = transforms.Compose([
+                        transforms.Resize((64, 64)),
+                        transforms.ToTensor()
+                    ])
+                    transformed_image = transform(image)
+                    features.append(tensor_transform(transformed_image))
+                else:
+                    features.append(torch.tensor(feature))
+
         return features, label
 
-def prepare_data(meta_df,dfs,donor = 31800,columns_to_drop = ['cell_id', 'day', 'donor', 'technology'],target='cell_type',dict_classes = {'BP': 0, 'EryP': 1, 'MoP': 2, 'NeuP': 3},batch_size=512):
+def prepare_data(meta_df,dfs,donor = 31800,columns_to_drop = ['cell_id', 'day', 'donor', 'technology'],target='cell_type',dict_classes = {'BP': 0, 'EryP': 1, 'MoP': 2, 'NeuP': 3},batch_size=512,image_path=None):
     def make_train_test(df,ids,columns_to_drop,target):
         split = df[df['cell_id'].isin(ids)]
         split = split.copy()
@@ -36,7 +60,6 @@ def prepare_data(meta_df,dfs,donor = 31800,columns_to_drop = ['cell_id', 'day', 
 
 
     merged_dfs = []
-    image_path = None
     test = meta_df[meta_df['donor'] == donor].copy()
     train_pre = meta_df[meta_df['donor'] != donor].copy()
     test_ids = test['cell_id'].values
@@ -63,6 +86,7 @@ def prepare_data(meta_df,dfs,donor = 31800,columns_to_drop = ['cell_id', 'day', 
 
 
     dim_list = [x.shape[1] for x in dfs[0]]
+    dim_list = [(3, 64, 64) if 1 == dim else dim for dim in dim_list]
 
     train_set = SingleCellDataset(dfs[0], y_train, image_path=image_path)
     val_set = SingleCellDataset(dfs[1], y_val, image_path=image_path)

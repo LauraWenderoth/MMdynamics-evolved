@@ -15,6 +15,7 @@ from tqdm import tqdm
 from sklearn.metrics import f1_score, confusion_matrix, recall_score, precision_score, accuracy_score,balanced_accuracy_score
 import wandb
 import argparse
+import random
 
 def one_hot_tensor(y, num_dim):
     y_onehot = torch.zeros(y.shape[0], num_dim)
@@ -98,15 +99,23 @@ def transform_to_df(models_dict):
     return df_results
 
 
-def train(root_folder,results_dir,device, hidden_dim =[70, 500], num_epochs = 100, modalities=['protein','rna'], batch_size=1024, testonly=False, use_wandb=True,model_name='checkpoint.pt',classes = {'BP': 0, 'EryP': 1, 'MoP': 2, 'NeuP': 3}):
+
+def train(root_folder,results_dir,device, hidden_dim =[70, 500], num_epochs = 100, modalities=['protein','rna'], batch_size=1024, testonly=False, use_wandb=True,model_name='checkpoint.pt',classes = {'BP': 0, 'EryP': 1, 'MoP': 2, 'NeuP': 3},classification_loss_weight=1,feature_import_loss=1,modality_import_loss=1,image_dir=None):
+
+    # Set random seed for reproducibility
+    random.seed(42)
+    np.random.seed(42)
+    torch.manual_seed(42)
+    torch.cuda.manual_seed(42)
+    torch.backends.cudnn.deterministic = True
 
     class_names = list(classes.keys())
-    test_inverval = 100
+    test_inverval = 10
     lr = 1e-4
     step_size = 500
     num_class = 4
 
-    run_name = f'RUN_weighted_hiddim{hidden_dim}_num_epochs{num_epochs}_best'
+    run_name = f'RUN_weighted_hiddim{hidden_dim}_num_epochs{num_epochs}_best_{classification_loss_weight}_{feature_import_loss}_{modality_import_loss}'
 
     results_dir = results_dir / run_name
     results_dir.mkdir(exist_ok=True)
@@ -115,11 +124,17 @@ def train(root_folder,results_dir,device, hidden_dim =[70, 500], num_epochs = 10
     modelpath.mkdir(exist_ok=True)
 
     if use_wandb:
-        wandb.init(project='R255 MMdynamics',name=run_name, config={"hidden_dim": hidden_dim, "num_epochs": num_epochs, "lr": lr, "save_dir" :results_dir}, resume="allow")
+        wandb.init(project='R255 MMdynamics',name=run_name, config={"hidden_dim": hidden_dim, "num_epochs": num_epochs,
+                                                                    "lr": lr, "save_dir" :results_dir,
+                                                                    'classification_loss_weight':classification_loss_weight,
+                                                                    'feature_import_loss':feature_import_loss,
+                                                                    'modality_import_loss':modality_import_loss},
+                   resume="allow")
     ###
     df_meta = pd.read_csv(root_folder / 'meta_data_train.csv')
     df_protein = pd.read_csv(root_folder / 'protein_data_train.csv')
     df_rna = pd.read_csv(root_folder / 'rna_rand_data_train.csv')
+    df_images = pd.read_csv(root_folder / 'image_data.csv')
 
     donors = np.unique(df_meta['donor'].values)
     donor_dfs =[]
@@ -128,12 +143,15 @@ def train(root_folder,results_dir,device, hidden_dim =[70, 500], num_epochs = 10
         used_modalities.append(df_protein)
     if 'rna' in modalities:
         used_modalities.append(df_rna)
+    if 'image' in modalities:
+        used_modalities.append(df_images)
 
     print(f'Used modalities: {modalities}')
+    print(f'Loss weighting: classification loss {classification_loss_weight}, feature importance {feature_import_loss}, modality importance {modality_import_loss}')
 
 
     for donor in donors:
-        df = dataloader_single.prepare_data(df_meta, used_modalities, donor=donor,batch_size=batch_size)
+        df = dataloader_single.prepare_data(df_meta, used_modalities, donor=donor,batch_size=batch_size,image_path=image_dir)
         donor_dfs.append(df)
 
     results = []
@@ -142,7 +160,7 @@ def train(root_folder,results_dir,device, hidden_dim =[70, 500], num_epochs = 10
         class_weights = class_weights.to(device)
         print('#################')
         train_dataloader, val_dataloader, test_dataloader = df_dict['train'], df_dict['val'], df_dict['test']
-        model = MMDynamic(dim_list, hidden_dim, num_class, dropout=0.5, class_weights=class_weights)
+        model = MMDynamic(dim_list, hidden_dim, num_class, dropout=0.5, class_weights=class_weights,classification_loss_weight=classification_loss_weight,feature_import_loss=feature_import_loss,modality_import_loss=modality_import_loss)
         model.to(device)
         best_model = model
         best_f1_macro = 0
@@ -198,20 +216,28 @@ if __name__ == "__main__":
     # Add arguments
     parser.add_argument("--root_folder", type=str, default="/home/lw754/R255/data/singlecell", help="Root folder path")
     parser.add_argument("--results_dir", type=str, default="/home/lw754/R255/results/singlecell/mmdynamics", help="Results directory path")
-    parser.add_argument("--hidden_dim", nargs="+", type=int, default=[140, 1000], help="Hidden dimensions")
-    parser.add_argument("--modalities", nargs="+", type=str, default=["protein", "rna"], help="Modalities")
+    parser.add_argument("--image_dir", type=str, default="/home/lw754/R255/data/bm_images",
+                        help="Root folder to images")
+    parser.add_argument("--hidden_dim", nargs="+", type=int, default=[35,250,500], help="Hidden dimensions")
+    parser.add_argument("--modalities", nargs="+", type=str, default=['protein', 'rna', 'image'], help="Modalities")
     parser.add_argument("--testonly", action="store_true", help="Test only mode")
-    parser.add_argument("--epochs", type=int, default=100, help="Number of epochs")
+    parser.add_argument("--epochs", type=int, default=250, help="Number of epochs")
+    parser.add_argument("--classification_loss_weight", type=float, default=1, help="Classification loss weight")
+    parser.add_argument("--feature_import_loss", type=float, default=1, help="Feature import loss weight")
+    parser.add_argument("--modality_import_loss", type=float, default=1, help="Modality import loss weight")
+
     # Parse arguments
     args = parser.parse_args()
 
     # Convert paths to Path objects
     root_folder = Path(args.root_folder)
     results_dir = Path(args.results_dir)
+    image_dir = Path(args.image_dir)
 
     # Use GPU if available, otherwise use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using {'GPU' if device.type == 'cuda' else 'CPU'} for training.")
 
     # Call the train function
-    train(root_folder=root_folder, results_dir=results_dir, device=device, hidden_dim=args.hidden_dim, modalities=args.modalities, testonly=args.testonly,num_epochs = args.epochs)
+    train(root_folder=root_folder, results_dir=results_dir, device=device, hidden_dim=args.hidden_dim, modalities=args.modalities, testonly=args.testonly,
+          num_epochs = args.epochs,use_wandb=False,classification_loss_weight=args.classification_loss_weight,feature_import_loss=args.feature_import_loss,modality_import_loss=args.modality_import_loss,image_dir=image_dir)
