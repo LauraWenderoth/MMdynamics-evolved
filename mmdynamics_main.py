@@ -5,7 +5,7 @@ import numpy as np
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 import torch
 import torch.nn.functional as F
-from models import MMDynamic
+from models import MMDynamic, MMStatic
 import pandas as pd
 from pathlib import Path
 from dataloader_2 import TCGADataset
@@ -100,7 +100,7 @@ def transform_to_df(models_dict):
 
 
 
-def train(root_folder,results_dir,device, hidden_dim =[70, 500], num_epochs = 100, modalities=['protein','rna'], batch_size=1024, testonly=False, use_wandb=True,model_name='checkpoint.pt',classes = {'BP': 0, 'EryP': 1, 'MoP': 2, 'NeuP': 3},classification_loss_weight=1,feature_import_loss=1,modality_import_loss=1,image_dir=None):
+def train(root_folder,results_dir,device, hidden_dim =[70, 500], num_epochs = 100, modalities=['protein','rna'], batch_size=1024, testonly=False, use_wandb=True,model_name='checkpoint.pt',classes = {'BP': 0, 'EryP': 1, 'MoP': 2, 'NeuP': 3},classification_loss_weight=1,feature_import_loss=1,modality_import_loss=1,image_dir=None, model_to_load = 'mmdynamics',modality_weights=[1]):
 
     # Set random seed for reproducibility
     random.seed(42)
@@ -115,7 +115,7 @@ def train(root_folder,results_dir,device, hidden_dim =[70, 500], num_epochs = 10
     step_size = 500
     num_class = 4
 
-    run_name = f'RUN_weighted_hiddim{hidden_dim}_num_epochs{num_epochs}_best_{classification_loss_weight}_{feature_import_loss}_{modality_import_loss}'
+    run_name = f'RUN_weighted_{modalities}_hiddim{hidden_dim}_num_epochs{num_epochs}_best_{model_to_load}_{modality_weights}_{classification_loss_weight}_{feature_import_loss}_{modality_import_loss}'
 
     results_dir = results_dir / run_name
     results_dir.mkdir(exist_ok=True)
@@ -160,7 +160,14 @@ def train(root_folder,results_dir,device, hidden_dim =[70, 500], num_epochs = 10
         class_weights = class_weights.to(device)
         print('#################')
         train_dataloader, val_dataloader, test_dataloader = df_dict['train'], df_dict['val'], df_dict['test']
-        model = MMDynamic(dim_list, hidden_dim, num_class, dropout=0.5, class_weights=class_weights,classification_loss_weight=classification_loss_weight,feature_import_loss=feature_import_loss,modality_import_loss=modality_import_loss)
+        if model_to_load == 'mmdynamics':
+            model = MMDynamic(dim_list, hidden_dim, num_class, dropout=0.5, class_weights=class_weights,classification_loss_weight=classification_loss_weight,feature_import_loss=feature_import_loss,modality_import_loss=modality_import_loss)
+            print('Using MMdynamic as model')
+        elif model_to_load == 'mmstatic':
+            model = MMStatic(dim_list, hidden_dim, num_class, dropout=0.5,class_weights=class_weights,modality_weights=modality_weights)
+            print('Using MMstatic as model')
+        else:
+            print('Choose a valid option for your model type!')
         model.to(device)
         best_model = model
         best_f1_macro = 0
@@ -216,15 +223,17 @@ if __name__ == "__main__":
     # Add arguments
     parser.add_argument("--root_folder", type=str, default="/home/lw754/R255/data/singlecell", help="Root folder path")
     parser.add_argument("--results_dir", type=str, default="/home/lw754/R255/results/singlecell/mmdynamics", help="Results directory path")
-    parser.add_argument("--image_dir", type=str, default="/home/lw754/R255/data/bm_images",
-                        help="Root folder to images")
+    parser.add_argument("--image_dir", type=str, default="/home/lw754/R255/data/bm_images", help="Root folder to images")
     parser.add_argument("--hidden_dim", nargs="+", type=int, default=[35,250,500], help="Hidden dimensions")
     parser.add_argument("--modalities", nargs="+", type=str, default=['protein', 'rna', 'image'], help="Modalities")
     parser.add_argument("--testonly", action="store_true", help="Test only mode")
-    parser.add_argument("--epochs", type=int, default=250, help="Number of epochs")
+    parser.add_argument("--epochs", type=int, default=1, help="Number of epochs")
     parser.add_argument("--classification_loss_weight", type=float, default=1, help="Classification loss weight")
     parser.add_argument("--feature_import_loss", type=float, default=1, help="Feature import loss weight")
     parser.add_argument("--modality_import_loss", type=float, default=1, help="Modality import loss weight")
+    parser.add_argument("--model", type=str, default='mmstatic', help="mmdynamics, mmstatic,")
+    parser.add_argument("--modality_weights", nargs="+", type=int, default=[3,1,6], help="weight assigned to each latent representation before concartination")
+
 
     # Parse arguments
     args = parser.parse_args()
@@ -237,7 +246,7 @@ if __name__ == "__main__":
     # Use GPU if available, otherwise use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using {'GPU' if device.type == 'cuda' else 'CPU'} for training.")
-
+    device = torch.device('cpu')
     # Call the train function
     train(root_folder=root_folder, results_dir=results_dir, device=device, hidden_dim=args.hidden_dim, modalities=args.modalities, testonly=args.testonly,
-          num_epochs = args.epochs,use_wandb=False,classification_loss_weight=args.classification_loss_weight,feature_import_loss=args.feature_import_loss,modality_import_loss=args.modality_import_loss,image_dir=image_dir)
+          num_epochs = args.epochs,use_wandb=False,classification_loss_weight=args.classification_loss_weight,feature_import_loss=args.feature_import_loss,modality_import_loss=args.modality_import_loss,image_dir=image_dir,model_to_load=args.model)
