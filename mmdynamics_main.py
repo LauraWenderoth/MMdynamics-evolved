@@ -16,6 +16,7 @@ from sklearn.metrics import f1_score, confusion_matrix, recall_score, precision_
 import wandb
 import argparse
 import random
+from models import HealNet, MCATomics
 
 def one_hot_tensor(y, num_dim):
     y_onehot = torch.zeros(y.shape[0], num_dim)
@@ -166,6 +167,38 @@ def train(root_folder,results_dir,device, hidden_dim =[70, 500], num_epochs = 10
         elif model_to_load == 'mmstatic':
             model = MMStatic(dim_list, hidden_dim, num_class, dropout=0.5,class_weights=class_weights,modality_weights=modality_weights)
             print('Using MMstatic as model')
+        elif model_to_load == 'healnet':
+            model = HealNet(
+                modalities=len(modalities),
+                input_channels=dim_list,  # number of features as input channels
+                input_axes=[1]*len(modalities),  # second axis (b n_feats c)
+                num_classes=num_class,
+                num_freq_bands=2,
+                depth=2,
+                max_freq=2.0,
+                num_latents=17,
+                latent_dim=126,
+                cross_dim_head=63,
+                latent_dim_head=20,
+                cross_heads=1,
+                latent_heads=8,
+                attn_dropout=0.5,
+                ff_dropout=0.36,
+                weight_tie_layers=False,
+                fourier_encode_data=True,
+                self_per_cross_attn=0,
+                final_classifier_head=True,
+                snn=True,
+                class_weights=class_weights,
+            )
+        elif model_to_load == 'mcat':
+            assert len(modalities) <= 2, f'MCAT only for 2 modalities but given {len(modalities)} modalities'
+            model = MCATomics(
+                n_classes=num_class,
+                omic_shape1=torch.Size([dim_list[0]]),
+                omic_shape2=torch.Size([dim_list[1]]) ,
+                class_weights=class_weights,
+            )
         else:
             print('Choose a valid option for your model type!')
         model.to(device)
@@ -224,14 +257,14 @@ if __name__ == "__main__":
     parser.add_argument("--root_folder", type=str, default="/home/lw754/R255/data/singlecell", help="Root folder path")
     parser.add_argument("--results_dir", type=str, default="/home/lw754/R255/results/singlecell/mmdynamics", help="Results directory path")
     parser.add_argument("--image_dir", type=str, default="/home/lw754/R255/data/bm_images", help="Root folder to images")
-    parser.add_argument("--hidden_dim", nargs="+", type=int, default=[35,250,500], help="Hidden dimensions")
-    parser.add_argument("--modalities", nargs="+", type=str, default=['protein', 'rna', 'image'], help="Modalities")
+    parser.add_argument("--hidden_dim", nargs="+", type=int, default=[35,250], help="Hidden dimensions")
+    parser.add_argument("--modalities", nargs="+", type=str, default=['protein', 'rna'], help="Modalities")
     parser.add_argument("--testonly", action="store_true", help="Test only mode")
     parser.add_argument("--epochs", type=int, default=1, help="Number of epochs")
     parser.add_argument("--classification_loss_weight", type=float, default=1, help="Classification loss weight")
     parser.add_argument("--feature_import_loss", type=float, default=1, help="Feature import loss weight")
     parser.add_argument("--modality_import_loss", type=float, default=1, help="Modality import loss weight")
-    parser.add_argument("--model", type=str, default='mmstatic', help="mmdynamics, mmstatic,")
+    parser.add_argument("--model", type=str, default='mcat', help="mmdynamics, mmstatic,healnet,mcat")
     parser.add_argument("--modality_weights", nargs="+", type=int, default=[3,1,6], help="weight assigned to each latent representation before concartination")
 
 
