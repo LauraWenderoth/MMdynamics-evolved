@@ -20,6 +20,13 @@ dynamics. Although this approach showed
 promising qualitative results, it did not outperform
 baseline methods quantitatively.
 
+<p align="center">
+  <img src="images/maskimage3.png" alt="Image 1" width="200"/>
+  <img src="images/maskimage3.png" alt="Image 2" width="200"/>
+  <img src="images/maskimage3.png" alt="Image 3" width="200"/>
+  <img src="images/maskimage3.png" alt="Image 4" width="200"/>
+</p>
+
 ## Data
 The dataset created by  Burkhardt et al. (2022) consists of multi-omics data such as gene expression profiles (RNA) and protein levels (protein) of single cells from mobilised peripheral CD34+ haematopoietic stem and progenitor cells isolated from three different healthy human donors. These cells are vital to the hematopoietic system and can differentiate in the bone marrow into different blood cells. Each cell is annotated with its corresponding cell type which cover B-lymphocytes progenitor, neutrophil progenitor, monocyte progenitor, and erythrocyte progenitor.
 
@@ -75,4 +82,4 @@ Overview of the results obtained using new image MM dynamics approaches when mas
 
 Comparison of state-of-the-art methods using the modalities RNA and protein.  The best results per column are in bold. The analysis reveals that basic machine learning classifiers exhibit the highest performance, particularly logistic regression (LR). Among deep learning models, only HEALNet achieves partially comparable results.
 
-![Image description](Ablation_informativeness-1.png) Overview of ablation studies that examine the impact of feature informativeness (FI) and modality informativeness (MI) components in the MM dynamics approach. FI refers to the inclusion of feature informativeness, MI refers to the inclusion of modality informativeness, and 'Both' indicates the incorporation of both FI and MI components. 'None' denotes scenarios where neither FI nor MI components are utilised. The figure displays the results across various evaluation metrics. All results were generated using MM dynamics trained on RNA and protein with latent representation dimensions of 250 and 35, respectively.
+![Image description](images/Ablation_informativeness-1.png) Overview of ablation studies that examine the impact of feature informativeness (FI) and modality informativeness (MI) components in the MM dynamics approach. FI refers to the inclusion of feature informativeness, MI refers to the inclusion of modality informativeness, and 'Both' indicates the incorporation of both FI and MI components. 'None' denotes scenarios where neither FI nor MI components are utilised. The figure displays the results across various evaluation metrics. All results were generated using MM dynamics trained on RNA and protein with latent representation dimensions of 250 and 35, respectively.
