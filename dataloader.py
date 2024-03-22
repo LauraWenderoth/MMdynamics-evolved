@@ -4,103 +4,103 @@ from torchvision.io import read_image
 from torch.utils.data import Dataset, DataLoader
 import torch
 from pathlib import Path
+from torchvision import transforms
 from sklearn.model_selection import train_test_split
-class TCGADataset(Dataset):
-    def __init__(self, features:list,labels,image_path,modalities, ids, n_bins=4, eps: float = 1e-6):
+import itertools
+import random
+from PIL import Image
+
+class SingleCellDataset(Dataset):
+    def __init__(self, X,y,image_path=None,transform=False):
+        self.X = X
+        self.y = y
         self.image_path = image_path
-        self.modalities = modalities
+        if image_path is not None:
+            self.image_path = Path(image_path)
         self.cuda = True if torch.cuda.is_available() else False
-        self.slide_ids = ids
-        self.omic_features = features
-        self.labels = labels
 
 
     def __len__(self):
-        return len(self.labels)
+        return len(self.y)
 
     def __getitem__(self, idx):
-        #img_path = os.path.join(self.image_path, self.img_labels.iloc[idx, 0])
-        #image = read_image(img_path)
-        label = self.labels[idx]
-        label = torch.LongTensor(label)
-        features = [torch.FloatTensor(modality[idx]) for modality in self.omic_features]
+        label = torch.tensor(self.y[idx])
+        if self.image_path is None:
+            features = [torch.tensor(modality.iloc[idx].values) for modality in self.X]
+        else:
+            features = []
+            for modality in self.X:
+                feature = modality.iloc[idx].values
+                if len(feature) == 1:
+                    image = Image.open(self.image_path/feature.item())
+                    transform = transforms.Compose([
+                        transforms.RandomHorizontalFlip(p=0.5),  # Random horizontal flip with a probability of 0.5
+                        transforms.RandomVerticalFlip(p=0.5),
+                    ])
+                    tensor_transform = transforms.Compose([
+                        transforms.Resize((64, 64)),
+                        transforms.ToTensor()
+                    ])
+                    transformed_image = transform(image)
+                    transformed_image= tensor_transform(transformed_image)
+                    #transformed_image = torch.full_like(transformed_image, 0.5, dtype=transformed_image.dtype)
+                    features.append(transformed_image)
+                else:
+                    features.append(torch.tensor(feature))
+
         return features, label
 
-
-def load_data(dataset,data_path,modalities, n_bins=4, batch_size=32, eps: float = 1e-6) -> tuple:
-    def split_omics(df):
-        substrings = ['rnaseq', 'cnv', 'mut']
-        dfs = [df.filter(like=sub) for sub in substrings]
-
-        return {"omic":df, "rna-sequence":dfs[0],"mutation":dfs[2],"copy-number":dfs[1]}
-
-    def filter_modalities(dict,modalities):
-        features = []
-        for key in dict.keys():
-            if key in modalities:
-                features.append(dict[key].values)
-        return features
-
-    test_size = 0.15
-    val_size = 0.15
-
-    omic_path = Path(data_path).joinpath(f"omic/tcga_{dataset}_all_clean.csv.zip")
-    df = pd.read_csv(omic_path, compression="zip", header=0, index_col=0, low_memory=False)
-
-    # handle missing values
-    num_nans = df.isna().sum().sum()
-    nan_counts = df.isna().sum()[df.isna().sum() > 0]
-    df = df.fillna(df.mean(numeric_only=True))
-    print(f"Filled {num_nans} missing values with mean")
-    print(f"Missing values per feature: \n {nan_counts}")
-    subset_df = df[df["censorship"] == 0] # only uncensored people
-
-    label_col = "survival_months"
-    disc_labels, q_bins = pd.qcut(subset_df[label_col], q=n_bins, retbins=True, labels=False)
-    q_bins[-1] = df[label_col].max() + eps
-    q_bins[0] = df[label_col].min() - eps
-    # use bin cuts to discretize all patients
-    df["y_disc"] = pd.cut(df[label_col], bins=q_bins, retbins=False, labels=False, right=False,
-                          include_lowest=True).values
-    df["y_disc"] = df["y_disc"].astype(int)
-    y = df["y_disc"].values
-    omic_df = df.drop(
-        ["site", "oncotree_code", "train","case_id",  "censorship", "survival_months", "y_disc"], axis=1) #,
-    X_train, X_test, y_train, y_test = train_test_split(omic_df, y, test_size = test_size, random_state = 42)
-    X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=val_size, random_state=42)
-    ID_train = X_train[["slide_id"]].values
-    ID_test = X_test[["slide_id"]].values
-    ID_val = X_val[["slide_id"]].values
-
-    X_train = X_train.drop(["slide_id"], axis=1)
-    X_val = X_val.drop([ "slide_id"], axis=1)
-    X_test = X_test.drop([ "slide_id"], axis=1)
-
-    ######## implement dataset basen on tabular features
-    X_train = filter_modalities(split_omics(X_train),modalities)
-    X_val = filter_modalities(split_omics(X_val),modalities)
-    X_test = filter_modalities(split_omics(X_test),modalities)
+def prepare_data(meta_df,dfs,donor = 31800,columns_to_drop = ['cell_id', 'day', 'donor', 'technology'],target='cell_type',dict_classes = {'BP': 0, 'EryP': 1, 'MoP': 2, 'NeuP': 3},batch_size=512,image_path=None):
+    def make_train_test(df,ids,columns_to_drop,target):
+        split = df[df['cell_id'].isin(ids)]
+        split = split.copy()
+        split.drop(columns=columns_to_drop, inplace=True)
+        y = split[target].map(dict_classes).values
+        X = split.drop(columns=[target], inplace=False)
+        return X,y
 
 
-    print(f"Train samples: {int(len(y_train))}, Val samples: {int(len(y_test))}, "
-          f"Test samples: {int(len(y_test))}")
-    image_path = Path(data_path).joinpath(f"wsi/{dataset}")
-    train_set = TCGADataset(X_train,y_train,image_path=image_path,modalities=modalities, ids=ID_train)
-    val_set = TCGADataset(X_val, y_val, image_path=image_path, modalities=modalities, ids=ID_val)
-    test_set = TCGADataset(X_test, y_test, image_path=image_path, modalities=modalities, ids=ID_test)
+
+    merged_dfs = []
+    test = meta_df[meta_df['donor'] == donor].copy()
+    train_pre = meta_df[meta_df['donor'] != donor].copy()
+    test_ids = test['cell_id'].values
+    train_ids, val_ids = train_test_split(train_pre['cell_id'].values, test_size=0.2,
+                                           random_state=42)  # You can adjust the test_size as needed
+    for df in dfs:
+        merged_df = pd.merge(meta_df, df, on='cell_id', how='inner')
+        merged_df = merged_df.drop_duplicates(subset='cell_id', keep='first')
+        merged_dfs.append(merged_df)
+    dfs = [[],[],[]]
+
+    for df in merged_dfs:
+        X_train,y_train = make_train_test(df, train_ids, columns_to_drop, target)
+        X_val, y_val = make_train_test(df, val_ids, columns_to_drop, target)
+        X_test, y_test = make_train_test(df, test_ids, columns_to_drop, target)
+        dfs[0].append(X_train)
+        dfs[1].append(X_val)
+        dfs[2].append(X_test)
+
+    class_counts = torch.bincount(torch.tensor(y_train))
+    total_samples = class_counts.sum().float()
+    class_frequencies = class_counts / total_samples
+    class_weights = 1.0 / class_frequencies
+
+
+    dim_list = [x.shape[1] for x in dfs[0]]
+    dim_list = [[64, 64] if 1 == dim else dim for dim in dim_list]
+
+    train_set = SingleCellDataset(dfs[0], y_train, image_path=image_path)
+    val_set = SingleCellDataset(dfs[1], y_val, image_path=image_path)
+    test_set = SingleCellDataset(dfs[2], y_test, image_path=image_path)
 
     train_dataloader = DataLoader(train_set, batch_size=batch_size,
-                            shuffle=True, num_workers=0)
+                                  shuffle=True, num_workers=0)
     val_dataloader = DataLoader(val_set, batch_size=batch_size,
-                                  shuffle=True, num_workers=0)
+                                shuffle=True, num_workers=0)
     test_dataloader = DataLoader(test_set, batch_size=batch_size,
-                                  shuffle=True, num_workers=0)
-    return train_dataloader, val_dataloader, test_dataloader
+                                 shuffle=True, num_workers=0)
 
+    dataloader = {'train': train_dataloader, 'val': val_dataloader,'test': test_dataloader}
 
-if __name__ == '__main__':
-    os.chdir("../../")
-    data_path = '/net/archive/export/tcga/tcga'
-    dataset='brca'
-    modalites = ["rna-sequence", "mutation", "copy-number"]
-    load_data(dataset, data_path, modalities=modalites)
+    return dataloader,dim_list, class_weights

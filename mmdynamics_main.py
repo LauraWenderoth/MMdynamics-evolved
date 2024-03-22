@@ -8,9 +8,8 @@ import torch.nn.functional as F
 from models import MMDynamic, MMStatic
 import pandas as pd
 from pathlib import Path
-from dataloader_2 import TCGADataset
 from sklearn.model_selection import train_test_split
-import dataloader_single
+import dataloader
 from tqdm import tqdm
 from sklearn.metrics import f1_score, confusion_matrix, recall_score, precision_score, accuracy_score,balanced_accuracy_score
 import wandb
@@ -152,7 +151,7 @@ def train(root_folder,results_dir,device, hidden_dim =[70, 500], num_epochs = 10
 
 
     for donor in donors:
-        df = dataloader_single.prepare_data(df_meta, used_modalities, donor=donor,batch_size=batch_size,image_path=image_dir)
+        df = dataloader.prepare_data(df_meta, used_modalities, donor=donor,batch_size=batch_size,image_path=image_dir)
         donor_dfs.append(df)
 
     results = []
