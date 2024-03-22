@@ -101,7 +101,7 @@ def transform_to_df(models_dict):
 
 
 
-def train(root_folder,results_dir,device, hidden_dim =[70, 500], num_epochs = 100, modalities=['protein','rna'], batch_size=1024, testonly=False, use_wandb=True,model_name='checkpoint.pt',classes = {'BP': 0, 'EryP': 1, 'MoP': 2, 'NeuP': 3},classification_loss_weight=1,feature_import_loss=1,modality_import_loss=1,image_dir=None, model_to_load = 'mmdynamics',modality_weights=[1]):
+def train(root_folder,results_dir,device, hidden_dim =[70, 500], num_epochs = 100, modalities=['protein','rna'], batch_size=1024, testonly=False, use_wandb=True,model_name='checkpoint.pt',classes = {'BP': 0, 'EryP': 1, 'MoP': 2, 'NeuP': 3},classification_loss_weight=1,feature_import_loss=1,modality_import_loss=1,image_dir=None, model_to_load = 'mmdynamics',modality_weights=[1],model_weights=None):
 
     # Set random seed for reproducibility
     random.seed(42)
@@ -191,6 +191,7 @@ def train(root_folder,results_dir,device, hidden_dim =[70, 500], num_epochs = 10
                 snn=True,
                 class_weights=class_weights,
             )
+            print('Using Healnet as model')
         elif model_to_load == 'mcat':
             assert len(modalities) <= 2, f'MCAT only for 2 modalities but given {len(modalities)} modalities'
             model = MCATomics(
@@ -199,6 +200,7 @@ def train(root_folder,results_dir,device, hidden_dim =[70, 500], num_epochs = 10
                 omic_shape2=torch.Size([dim_list[1]]) ,
                 class_weights=class_weights,
             )
+            print('Using MCAT as model')
         else:
             print('Choose a valid option for your model type!')
         model.to(device)
@@ -225,7 +227,11 @@ def train(root_folder,results_dir,device, hidden_dim =[70, 500], num_epochs = 10
             model_name = f'checkpoint_{donors[donor_i]}.pt'
             save_checkpoint(best_model.state_dict(), modelpath,filename=model_name)
         # test
-        load_checkpoint(best_model, os.path.join(modelpath,model_name))
+        if not testonly:
+            load_checkpoint(best_model, os.path.join(modelpath,model_name))
+        else:
+            model_name = f'checkpoint_{donors[donor_i]}.pt'
+            load_checkpoint(best_model, os.path.join(model_weights, model_name))
         result,cfm = eval_model(test_dataloader, model,device=device,title='Test')
         result['Donor'] = donors[donor_i]
 
@@ -257,15 +263,19 @@ if __name__ == "__main__":
     parser.add_argument("--root_folder", type=str, default="/home/lw754/R255/data/singlecell", help="Root folder path")
     parser.add_argument("--results_dir", type=str, default="/home/lw754/R255/results/singlecell/mmdynamics", help="Results directory path")
     parser.add_argument("--image_dir", type=str, default="/home/lw754/R255/data/bm_images", help="Root folder to images")
-    parser.add_argument("--hidden_dim", nargs="+", type=int, default=[35,250], help="Hidden dimensions")
-    parser.add_argument("--modalities", nargs="+", type=str, default=['protein', 'rna'], help="Modalities")
-    parser.add_argument("--testonly", action="store_true", help="Test only mode")
-    parser.add_argument("--epochs", type=int, default=1, help="Number of epochs")
+    parser.add_argument("--hidden_dim", nargs="+", type=int, default=[35,250,500], help="Hidden dimensions")
+    parser.add_argument("--modalities", nargs="+", type=str, default=['protein', 'rna','image'], help="Modalities")
+    parser.add_argument("--testonly", action="store_true", default=True, help="Test only mode")
+    parser.add_argument("--epochs", type=int, default=250, help="Number of epochs")
     parser.add_argument("--classification_loss_weight", type=float, default=1, help="Classification loss weight")
     parser.add_argument("--feature_import_loss", type=float, default=1, help="Feature import loss weight")
     parser.add_argument("--modality_import_loss", type=float, default=1, help="Modality import loss weight")
-    parser.add_argument("--model", type=str, default='mcat', help="mmdynamics, mmstatic,healnet,mcat")
+    parser.add_argument("--model", type=str, default='mmstatic', help="mmdynamics, mmstatic,healnet,mcat")
     parser.add_argument("--modality_weights", nargs="+", type=int, default=[3,1,6], help="weight assigned to each latent representation before concartination")
+    parser.add_argument("--model_weights", type=str,
+                        #default='/home/lw754/R255/results/singlecell/mmdynamics/RUN_weighted_hiddim[35, 250, 500]_num_epochs250_best_1_1_1/weights/',
+                        default="/home/lw754/R255/results/singlecell/mmdynamics/RUN_weighted_['protein', 'rna', 'image']_hiddim[35, 250, 500]_num_epochs250_best_mmstatic_[3, 1, 6]_1_1_1/weights/",
+                        help="mmdynamics, mmstatic,healnet,mcat")
 
 
     # Parse arguments
@@ -278,8 +288,8 @@ if __name__ == "__main__":
 
     # Use GPU if available, otherwise use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    #device = torch.device("cpu")
     print(f"Using {'GPU' if device.type == 'cuda' else 'CPU'} for training.")
-    device = torch.device('cpu')
     # Call the train function
     train(root_folder=root_folder, results_dir=results_dir, device=device, hidden_dim=args.hidden_dim, modalities=args.modalities, testonly=args.testonly,
-          num_epochs = args.epochs,use_wandb=False,classification_loss_weight=args.classification_loss_weight,feature_import_loss=args.feature_import_loss,modality_import_loss=args.modality_import_loss,image_dir=image_dir,model_to_load=args.model)
+          num_epochs = args.epochs,use_wandb=False,classification_loss_weight=args.classification_loss_weight,feature_import_loss=args.feature_import_loss,modality_import_loss=args.modality_import_loss,image_dir=image_dir,model_to_load=args.model,modality_weights=args.modality_weights,model_weights=args.model_weights)
