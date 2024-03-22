@@ -1,4 +1,6 @@
-""" Componets of the model
+""" MMdynamic copied from https://github.com/TencentAILabHealthcare/mmdynamics
+    MCAT copied from https://github.com/konst-int-i/healnet
+    HEALNet copied from https://github.com/konst-int-i/healnet
 """
 import torch.nn as nn
 import torch
