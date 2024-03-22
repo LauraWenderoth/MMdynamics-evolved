@@ -45,13 +45,13 @@ For the uni-modal encoder, we use a CNN architecture consisting of two convoluti
 | NN            | early           | 95.73 ± 1.3        | 74.58 ± 2.9      | 96.22 ± 1.1       | 95.98 ± 1.3       | 96.22 ± 1.1       | 71.44 ± 4.3       |
 | RF            | early           | 94.84 ± 2.0        | 66.02 ± 3.2      | 95.89 ± 1.6       | 94.63 ± 1.4       | 95.89 ± 1.6       | 63.72 ± 3.7       |
 | SVM           | early           | 95.62 ± 1.9        | 72.42 ± 5.6      | 96.32 ± 1.5       | 96.34 ± 1.5       | **96.32 ± 1.5**   | 68.79 ± 5.9       |
-|---------------|-----------------|--------------------|------------------|-------------------|-------------------|-------------------|-------------------|
+
 | HEALNet       | intermediate    | 95.84 ± 1.2        | 76.76 ± 1.6      | 96.22 ± 1.1       | 95.91 ± 1.2       | 96.22 ± 1.1       | **73.58 ± 0.8**   |
 | MCAT          | late            | 95.55 ± 1.3        | 72.66 ± 1.6      | 95.99 ± 1.2       | 95.46 ± 1.2       | 95.99 ± 1.2       | 70.46 ± 0.8       |
 | MM static     | late            | 94.99 ± 0.7        | 71.04 ± 1.2      | 95.53 ± 0.6       | 94.89 ± 0.8       | 95.52 ± 0.6       | 69.12 ± 2.1       |
-|---------------|-----------------|--------------------|------------------|-------------------|-------------------|-------------------|-------------------|
+
 | MM dynamics   | late            | 94.32 ± 1.7        | 66.67 ± 2.7      | 95.13 ± 1.5       | 93.90 ± 1.7       | 95.13 ± 1.5       | 64.53 ± 2.6       |
 
 Comparison of state-of-the-art methods using the modalities RNA and protein.  The best results per column are in bold. The analysis reveals that basic machine learning classifiers exhibit the highest performance, particularly logistic regression (LR). Among deep learning models, only HEALNet achieves partially comparable results.
 
-![Image description](path/to/image.png)
+![Image description](Ablation_informativeness-1.png) Overview of ablation studies that examine the impact of feature informativeness (FI) and modality informativeness (MI) components in the MM dynamics approach. FI refers to the inclusion of feature informativeness, MI refers to the inclusion of modality informativeness, and 'Both' indicates the incorporation of both FI and MI components. 'None' denotes scenarios where neither FI nor MI components are utilised. The figure displays the results across various evaluation metrics. All results were generated using MM dynamics trained on RNA and protein with latent representation dimensions of 250 and 35, respectively.
