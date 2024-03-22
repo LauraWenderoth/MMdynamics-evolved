@@ -23,7 +23,7 @@ baseline methods quantitatively.
 ## Data
 The dataset created by  Burkhardt et al. (2022) consists of multi-omics data such as gene expression profiles (RNA) and protein levels (protein) of single cells from mobilised peripheral CD34+ haematopoietic stem and progenitor cells isolated from three different healthy human donors. These cells are vital to the hematopoietic system and can differentiate in the bone marrow into different blood cells. Each cell is annotated with its corresponding cell type which cover B-lymphocytes progenitor, neutrophil progenitor, monocyte progenitor, and erythrocyte progenitor.
 
-In addition, an independent image dataset was selected, comprising single-cell images from bone marrow (Matek et al., 2021). From this dataset, images corresponding to the four classes — lymphocytes, neutrophilic granulocytes, monocytes, and erythroblasts — were respectively chosen and are illustrated in Figure \ref{fig:dataset_images}. Each multi-omics data point is associated with an image depicting the same cell type. It is worth noting that the images presented may not necessarily depict the exact cells from which the omics data was extracted.  Nevertheless, this disparity does not present any significant obstacle, given that the primary objective is to classify cell types rather than to match individual cells across various modalities.
+In addition, an independent image dataset was selected, comprising single-cell images from bone marrow (Matek et al., 2021). The data set can be downloaded using this link: https://wiki.cancerimagingarchive.net/pages/viewpage.action?pageId=101941770. From this dataset, images corresponding to the four classes — lymphocytes, neutrophilic granulocytes, monocytes, and erythroblasts — were respectively chosen and are illustrated in Figure \ref{fig:dataset_images}. Each multi-omics data point is associated with an image depicting the same cell type. It is worth noting that the images presented may not necessarily depict the exact cells from which the omics data was extracted.  Nevertheless, this disparity does not present any significant obstacle, given that the primary objective is to classify cell types rather than to match individual cells across various modalities. 
 
 
 ## Image MM Dynamics 
@@ -38,6 +38,29 @@ In contrast, for the decoder, we chose to use a single upsampling convolution op
 For the uni-modal encoder, we use a CNN architecture consisting of two convolutional layers, integrated max-pooling, and two fully connected layers with ReLU activation. This decision was made to create a compact network for proof of concept.
 
 ## Results
+
+## Image dynamics
+
+| Method        | Modalities   | F1 Score          | F1 macro          | Recall            | Precision         | Accuracy          | Balanced accuracy |
+|---------------|--------------|-------------------|-------------------|-------------------|-------------------|-------------------|-------------------|
+| CNN           | I            | 87.00 ± 1.7       | 63.00 ± 2.1       | 85.20 ± 1.4       | 89.75 ± 1.5       | 85.20 ± 1.5       | 73.03 ± 1.7       |
+| MM dynamics   | R + I        | 95.54 ± 1.3       | 74.35 ± 3.4       | 96.12 ± 1.2       | 95.82 ± 1.4       | 96.12 ± 1.2       | 70.07 ± 2.5       |
+| MM dynamics   | P + I        | 83.55 ± 0.8       | 60.36 ± 5.7       | 81.14 ± 2.2       | 87.48 ± 1.4       | 81.14 ± 2.2       | 71.67 ± 2.7       |
+| MM static     | P + R + I    | **96.74 ± 0.7**   | **81.01 ± 2.3**   | **97.03 ± 0.6**   | **96.84 ± 0.6**   | **97.03 ± 0.6**   | **76.97 ± 0.4**   |
+| MM dynamics   | P + R + I    | 95.98 ± 1.7       | 78.64 ± 2.1       | 96.50 ± 1.4       | 96.41 ± 1.4       | 96.50 ± 1.7       | 73.50 ± 1.7       |
+
+Overview of the results obtained using new Image MM dynamics extension. For comparison, MM static was also calculated as a baseline on all three modalities, along with ablations using Image MM dynamics only on image and another modality, as well as solely image for comparison.  The results show that while Image MM dynamics cannot match MM static and the latter remains superior, there is a significant improvement compared to using only two modalities. However, the use of three modalities resulted in a significant improvement compared to using only two, indicating the effectiveness of integrating images into the original MM dynamics algorithm. The abbreviations used are R for RNA, P for protein, and I for images with latent representation dimensions of 250, 35 and 500, respectively.
+
+| Method        | Modalities  | F1 Score          | F1 macro          | Recall            | Precision         | Accuracy          | Balanced accuracy |
+|---------------|-------------|-------------------|-------------------|-------------------|-------------------|-------------------|-------------------|
+| MM dynamics   | P + R + I* | 92.97 ± 3.8       | 64.69 ± 4.8       | 94.19 ± 3.1       | 93.78 ± 2.3       | 94.19 ± 3.1       | 61.58 ± 4.8       |
+| MM dynamics   | P + R       | 94.32 ± 1.7       | 66.67 ± 2.7       | 95.13 ± 1.5       | 93.90 ± 1.7       | 95.13 ± 1.5       | 64.53 ± 2.6       |
+| MM static     | P + R + I* | 93.82 ± 2.9       | 70.65 ± 4.9       | 94.43 ± 2.6       | 94.17 ± 2.5       | 94.43 ± 2.6       | 66.54 ± 4.9       |
+
+Overview of the results obtained using new image MM dynamics approaches when masking the image modality. The images were masked only during testing by substituting them with gray images of uniform intensity 0.5. Additionally, MM static was included as a baseline for comparison. The results indicate that MM dynamics performs noticeably worse than the static late fusion baseline or dynamic late fusion trained solely on the available modalities. The abbreviations used are R for RNA, P for protein, and I* for masked images with latent representation dimensions of 250, 35 and 500, respectively.
+
+
+### Reproduction of MM dynamics
 | Method        | Fusion strategy | F1 Score           | F1 macro         | Recall            | Precision         | Accuracy          | Balanced accuracy |
 |---------------|-----------------|--------------------|------------------|-------------------|-------------------|-------------------|-------------------|
 | KNN           | early           | 94.64 ± 1.8        | 72.57 ± 6.7      | 95.36 ± 1.4       | 95.43 ± 1.4       | 95.36 ± 1.4       | 68.06 ± 6.5       |
