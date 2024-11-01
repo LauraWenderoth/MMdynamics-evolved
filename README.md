@@ -1,12 +1,12 @@
 # R255-Explainable-multimodal-classification
 
 This repository investigates the MM dynamics
-approach proposed by Han et al. (2022) for
+approach proposed by [Han et al. (2022)](https://ieeexplore.ieee.org/document/9878603) 
 multi-modal fusion in biomedical classification
 tasks. The MM dynamics algorithm integrates
 feature-level and modality-level informativeness
 to dynamically fuse modalities for improved
-classification performance. However, our analysis
+classification performance. For more information, visit the [mmdynamics git repository](https://github.com/TencentAILabHealthcare/mmdynamicsfor). However, our analysis
 reveals several limitations and challenges in
 replicating and extending the results of MM
 dynamics. The study found that feature informa-
