@@ -1,4 +1,4 @@
-# R255-Explainable-multimodal-classification
+# MM dynamics evolved: explainable multimodal classification
 
 This repository investigates the MM dynamics
 approach proposed by [Han et al. (2022)](https://ieeexplore.ieee.org/document/9878603) 
