@@ -1,4 +1,5 @@
 # MM dynamics evolved: explainable multimodal classification
+[![arXiv](https://img.shields.io/badge/arXiv-2411.00725-B31B1B.svg)](https://arxiv.org/abs/2411.00725)
 
 This repository investigates the MM dynamics
 approach proposed by [Han et al. (2022)](https://ieeexplore.ieee.org/document/9878603) 
