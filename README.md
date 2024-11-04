@@ -7,7 +7,7 @@ multi-modal fusion in biomedical classification
 tasks. The MM dynamics algorithm integrates
 feature-level and modality-level informativeness
 to dynamically fuse modalities for improved
-classification performance. For more information, visit the [mmdynamics git repository](https://github.com/TencentAILabHealthcare/mmdynamicsfor). However, our analysis
+classification performance. For more information, visit the [mmdynamics git repository](https://github.com/TencentAILabHealthcare/mmdynamics). However, our analysis
 reveals several limitations and challenges in
 replicating and extending the results of MM
 dynamics. The study found that feature informa-
